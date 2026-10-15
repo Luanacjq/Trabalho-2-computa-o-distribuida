@@ -1,0 +1,101 @@
+services:
+  # Banco de dados: sem "ports", portanto inacessível pela máquina hospedeira.
+  # Fica apenas na rede "backend", acessível somente pelos contêineres do WordPress.
+  mysql:
+    image: mysql:5.7
+    container_name: mysql
+    restart: unless-stopped
+    environment:
+      MYSQL_ROOT_PASSWORD: rootpass
+      MYSQL_DATABASE: wordpress
+      MYSQL_USER: wordpress
+      MYSQL_PASSWORD: wordpress
+    volumes:
+      - db_data:/var/lib/mysql
+    networks:
+      - backend
+    healthcheck:
+      test: ["CMD", "mysqladmin", "ping", "-h", "localhost", "-uroot", "-prootpass"]
+      interval: 5s
+      timeout: 5s
+      retries: 30
+
+  # Três instâncias do WordPress: sem "ports", acessíveis apenas pelo Nginx.
+  # Todas compartilham a pasta ./wordpress da máquina hospedeira em /var/www/html
+  # e usam o mesmo banco MySQL.
+  wordpress1:
+    image: wordpress:5.4.2-php7.2-apache
+    container_name: wordpress1
+    restart: unless-stopped
+    depends_on:
+      mysql:
+        condition: service_healthy
+    environment: &wp_env
+      WORDPRESS_DB_HOST: mysql:3306
+      WORDPRESS_DB_USER: wordpress
+      WORDPRESS_DB_PASSWORD: wordpress
+      WORDPRESS_DB_NAME: wordpress
+    volumes:
+      - ./wordpress:/var/www/html
+    networks:
+      - frontend
+      - backend
+    # wordpress1 copia os arquivos do WordPress para a pasta compartilhada.
+    # As outras instâncias só sobem depois disso, evitando cópias concorrentes.
+    healthcheck:
+      test: ["CMD", "test", "-f", "/var/www/html/wp-config.php"]
+      interval: 5s
+      timeout: 5s
+      retries: 30
+
+  wordpress2:
+    image: wordpress:5.4.2-php7.2-apache
+    container_name: wordpress2
+    restart: unless-stopped
+    depends_on:
+      wordpress1:
+        condition: service_healthy
+    environment: *wp_env
+    volumes:
+      - ./wordpress:/var/www/html
+    networks:
+      - frontend
+      - backend
+
+  wordpress3:
+    image: wordpress:5.4.2-php7.2-apache
+    container_name: wordpress3
+    restart: unless-stopped
+    depends_on:
+      wordpress1:
+        condition: service_healthy
+    environment: *wp_env
+    volumes:
+      - ./wordpress:/var/www/html
+    networks:
+      - frontend
+      - backend
+
+  # Balanceador de carga: único serviço exposto para a máquina hospedeira (porta 80).
+  nginx:
+    image: nginx:1.19.0
+    container_name: nginx
+    restart: unless-stopped
+    depends_on:
+      - wordpress1
+      - wordpress2
+      - wordpress3
+    ports:
+      - "80:80"
+    volumes:
+      - ./nginx/nginx.conf:/etc/nginx/nginx.conf:ro
+      - ./wordpress:/usr/share/nginx/html
+    networks:
+      - frontend
+
+networks:
+  frontend:
+  backend:
+
+volumes:
+  db_data:

@@ -1,0 +1,75 @@
+﻿Resultado dos testes - 15/10/2026 18:43:19
+
+==================== 1. Os cinco conteineres em execucao ====================
+NAME         IMAGE                           COMMAND                  SERVICE      CREATED          STATUS                    PORTS
+mysql        mysql:5.7                       "docker-entrypoint.s…"   mysql        21 minutes ago   Up 21 minutes (healthy)   3306/tcp, 33060/tcp
+nginx        nginx:1.19.0                    "/docker-entrypoint.…"   nginx        21 minutes ago   Up 21 minutes             0.0.0.0:80->80/tcp, [::]:80->80/tcp
+wordpress1   wordpress:5.4.2-php7.2-apache   "docker-entrypoint.s…"   wordpress1   21 minutes ago   Up 21 minutes (healthy)   80/tcp
+wordpress2   wordpress:5.4.2-php7.2-apache   "docker-entrypoint.s…"   wordpress2   21 minutes ago   Up 21 minutes             80/tcp
+wordpress3   wordpress:5.4.2-php7.2-apache   "docker-entrypoint.s…"   wordpress3   21 minutes ago   Up 21 minutes             80/tcp
+
+
+==================== 2. Portas publicadas (apenas o nginx deve expor a porta 80) ====================
+NAMES        IMAGE                           PORTS
+nginx        nginx:1.19.0                    0.0.0.0:80->80/tcp, [::]:80->80/tcp
+wordpress2   wordpress:5.4.2-php7.2-apache   80/tcp
+wordpress3   wordpress:5.4.2-php7.2-apache   80/tcp
+wordpress1   wordpress:5.4.2-php7.2-apache   80/tcp
+mysql        mysql:5.7                       3306/tcp, 33060/tcp
+
+
+==================== 3. IPs dos conteineres do WordPress ====================
+wordpress1 -> 172.18.0.3 172.19.0.2 
+wordpress2 -> 172.18.0.5 172.19.0.4 
+wordpress3 -> 172.18.0.4 172.19.0.3 
+
+
+==================== 4. Balanceamento: curl -I http://localhost/ (9 vezes) ====================
+Requisicao 1: X-Upstream: 172.19.0.2:80
+Requisicao 2: X-Upstream: 172.19.0.4:80
+Requisicao 3: X-Upstream: 172.19.0.3:80
+Requisicao 4: X-Upstream: 172.19.0.2:80
+Requisicao 5: X-Upstream: 172.19.0.4:80
+Requisicao 6: X-Upstream: 172.19.0.3:80
+Requisicao 7: X-Upstream: 172.19.0.2:80
+Requisicao 8: X-Upstream: 172.19.0.4:80
+Requisicao 9: X-Upstream: 172.19.0.3:80
+
+Distribuicao das requisicoes:
+  X-Upstream: 172.19.0.2:80  => 3 requisicoes
+  X-Upstream: 172.19.0.3:80  => 3 requisicoes
+  X-Upstream: 172.19.0.4:80  => 3 requisicoes
+
+
+==================== 5. Cabecalhos completos de uma requisicao ====================
+HTTP/1.1 200 OK
+Server: nginx/1.19.0
+Date: Thu, 15 Oct 2026 21:43:21 GMT
+Content-Type: text/html; charset=UTF-8
+Connection: keep-alive
+X-Powered-By: PHP/7.2.33
+Link: <http://localhost/wp-json/>; rel="https://api.w.org/"
+X-Upstream: 172.19.0.2:80
+
+
+
+==================== 6. MySQL acessivel pelo WordPress (rede backend) ====================
+wordpress1 conectou ao MySQL com sucesso
+
+
+==================== 7. MySQL NAO acessivel pelo nginx (fora da rede backend) ====================
+OK: o conteiner nginx nao consegue nem resolver o host 'mysql'
+
+
+==================== 8. Somente a porta 80 (nginx) acessivel pela maquina hospedeira; MySQL (3306) nao ====================
+localhost:80 acessivel? True
+localhost:3306 acessivel? False
+
+
+==================== 9. Pasta compartilhada /var/www/html (hospedeiro, wordpress1-3 e nginx) ====================
+Arquivo criado no hospedeiro: wordpress\teste-184335.txt
+wordpress1 : /var/www/html/teste-184335.txt
+wordpress2 : /var/www/html/teste-184335.txt
+wordpress3 : /var/www/html/teste-184335.txt
+nginx : /usr/share/nginx/html/teste-184335.txt
+
